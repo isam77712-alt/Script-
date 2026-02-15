@@ -1,0 +1,689 @@
+-- LocalScript (đặt trong StarterPlayerScripts hoặc StarterGui)
+local player = game.Players.LocalPlayer
+local UIS = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+
+local char = player.Character or player.CharacterAdded:Wait()
+local hum = char:WaitForChild("Humanoid")
+local root = char:WaitForChild("HumanoidRootPart")
+
+-- Settings
+local Settings = {
+    WalkSpeed = 32,
+    JumpPower = 70,
+    FlySpeed = 60,
+    Godmode = false
+}
+
+-- Biến trạng thái
+local flying = false
+local flyBodyVelocity = nil
+local flyBodyGyro = nil
+local controls = {forward = 0, backward = 0, left = 0, right = 0, up = 0, down = 0}
+
+-- Tạo GUI
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Parent = player:WaitForChild("PlayerGui")
+ScreenGui.ResetOnSpawn = false
+ScreenGui.Name = "CoolCheatMenu"
+
+local Frame = Instance.new("Frame")
+Frame.Size = UDim2.new(0, 260, 0, 340)
+Frame.Position = UDim2.new(0.5, -130, 0.5, -170)
+Frame.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+Frame.BorderSizePixel = 0
+Frame.ClipsDescendants = true
+Frame.Parent = ScreenGui
+
+-- Corner
+local UICorner = Instance.new("UICorner")
+UICorner.CornerRadius = UDim.new(0, 12)
+UICorner.Parent = Frame
+
+-- Gradient
+local UIGradient = Instance.new("UIGradient")
+UIGradient.Color = ColorSequence.new{
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(40, 40, 60)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(10, 10, 20))
+}
+UIGradient.Rotation = 45
+UIGradient.Parent = Frame
+
+-- Title bar
+local TitleBar = Instance.new("Frame")
+TitleBar.Size = UDim2.new(1, 0, 0, 40)
+TitleBar.BackgroundColor3 = Color3.fromRGB(30, 100, 220)
+TitleBar.BorderSizePixel = 0
+TitleBar.Parent = Frame
+
+local TitleCorner = Instance.new("UICorner")
+TitleCorner.CornerRadius = UDim.new(0, 12)
+TitleCorner.Parent = TitleBar
+
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, -80, 1, 0)
+Title.Position = UDim2.new(0, 16, 0, 0)
+Title.BackgroundTransparency = 1
+Title.Text = "Cheat Menu"
+Title.TextColor3 = Color3.new(1,1,1)
+Title.TextSize = 20
+Title.Font = Enum.Font.GothamBold
+Title.TextXAlignment = Enum.TextXAlignment.Left
+Title.Parent = TitleBar
+
+-- Nút đóng
+local CloseBtn = Instance.new("TextButton")
+CloseBtn.Size = UDim2.new(0, 30, 0, 30)
+CloseBtn.Position = UDim2.new(1, -40, 0, 5)
+CloseBtn.BackgroundColor3 = Color3.fromRGB(220, 60, 60)
+CloseBtn.Text = "X"
+CloseBtn.TextColor3 = Color3.new(1,1,1)
+CloseBtn.Font = Enum.Font.GothamBold
+CloseBtn.TextSize = 18
+CloseBtn.Parent = TitleBar
+
+local CloseCorner = Instance.new("UICorner")
+CloseCorner.CornerRadius = UDim.new(0, 8)
+CloseCorner.Parent = CloseBtn
+
+-- Nội dung chính
+local Content = Instance.new("Frame")
+Content.Size = UDim2.new(1, -20, 1, -50)
+Content.Position = UDim2.new(0, 10, 0, 45)
+Content.BackgroundTransparency = 1
+Content.Parent = Frame
+
+-- Tạo các nút toggle + slider
+local function CreateToggle(name, yPos, callback)
+    local container = Instance.new("Frame")
+    container.Size = UDim2.new(1, 0, 0, 36)
+    container.Position = UDim2.new(0, 0, 0, yPos)
+    container.BackgroundTransparency = 1
+    container.Parent = Content
+    
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(0.65, 0, 1, 0)
+    label.BackgroundTransparency = 1
+    label.Text = name
+    label.TextColor3 = Color3.new(0.9,0.9,0.9)
+    label.TextSize = 16
+    label.Font = Enum.Font.GothamSemibold
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.Parent = container
+    
+    local toggle = Instance.new("TextButton")
+    toggle.Size = UDim2.new(0, 44, 0, 24)
+    toggle.Position = UDim2.new(1, -54, 0.5, -12)
+    toggle.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
+    toggle.Text = "OFF"
+    toggle.TextColor3 = Color3.fromRGB(180,180,180)
+    toggle.Font = Enum.Font.GothamBold
+    toggle.TextSize = 14
+    toggle.Parent = container
+    
+    local togCorner = Instance.new("UICorner")
+    togCorner.CornerRadius = UDim.new(0, 12)
+    togCorner.Parent = toggle
+    
+    local enabled = false
+    
+    toggle.MouseButton1Click:Connect(function()
+        enabled = not enabled
+        if enabled then
+            toggle.BackgroundColor3 = Color3.fromRGB(60, 200, 100)
+            toggle.Text = "ON"
+            toggle.TextColor3 = Color3.new(1,1,1)
+        else
+            toggle.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
+            toggle.Text = "OFF"
+            toggle.TextColor3 = Color3.fromRGB(180,180,180)
+        end
+        callback(enabled)
+    end)
+    
+    return toggle
+end
+
+local function CreateSlider(name, yPos, min, max, default, callback)
+    local container = Instance.new("Frame")
+    container.Size = UDim2.new(1, 0, 0, 50)
+    container.Position = UDim2.new(0, 0, 0, yPos)
+    container.BackgroundTransparency = 1
+    container.Parent = Content
+    
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(1, 0, 0, 20)
+    label.BackgroundTransparency = 1
+    label.Text = name .. ": " .. default
+    label.TextColor3 = Color3.new(0.9,0.9,0.9)
+    label.TextSize = 15
+    label.Font = Enum.Font.GothamSemibold
+    label.Parent = container
+    
+    local sliderBg = Instance.new("Frame")
+    sliderBg.Size = UDim2.new(1, 0, 0, 10)
+    sliderBg.Position = UDim2.new(0, 0, 0, 28)
+    sliderBg.BackgroundColor3 = Color3.fromRGB(50,50,60)
+    sliderBg.Parent = container
+    
+    local sliderFill = Instance.new("Frame")
+    sliderFill.Size = UDim2.new(0.5, 0, 1, 0)
+    sliderFill.BackgroundColor3 = Color3.fromRGB(100, 180, 255)
+    sliderFill.BorderSizePixel = 0
+    sliderFill.Parent = sliderBg
+    
+    local sliderCorner = Instance.new("UICorner")
+    sliderCorner.CornerRadius = UDim.new(1,0)
+    sliderCorner.Parent = sliderBg
+    
+    local fillCorner = Instance.new("UICorner")
+    fillCorner.CornerRadius = UDim.new(1,0)
+    fillCorner.Parent = sliderFill
+    
+    local dragging = false
+    
+    sliderBg.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+        end
+    end)
+    
+    sliderBg.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = false
+        end
+    end)
+    
+    RunService.RenderStepped:Connect(function()
+        if dragging then
+            local mousePos = UIS:GetMouseLocation()
+            local relX = math.clamp((mousePos.X - sliderBg.AbsolutePosition.X) / sliderBg.AbsoluteSize.X, 0, 1)
+            sliderFill.Size = UDim2.new(relX, 0, 1, 0)
+            
+            local value = math.floor(min + (max - min) * relX)
+            label.Text = name .. ": " .. value
+            callback(value)
+        end
+    end)
+end
+
+-- Các chức năng
+
+CreateToggle("Godmode (Bất tử)", 0, function(state)
+    Settings.Godmode = state
+    if state then
+        hum.MaxHealth = math.huge
+        hum.Health = math.huge
+    else
+        hum.MaxHealth = 100
+        hum.Health = 100
+    end
+end)
+
+CreateSlider("Walk Speed", 50, 16, 300, 32, function(value)
+    Settings.WalkSpeed = value
+    if hum then hum.WalkSpeed = value end
+end)
+
+CreateSlider("Jump Power", 110, 50, 300, 70, function(value)
+    Settings.JumpPower = value
+    if hum then hum.JumpPower = value end
+end)
+
+CreateSlider("Fly Speed", 170, 20, 300, 60, function(value)
+    Settings.FlySpeed = value
+    if flyBodyVelocity then
+        flyBodyVelocity.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+        flyBodyVelocity.Velocity = Vector3.new(0,0,0)
+    end
+end)
+
+local flyToggle = CreateToggle("Fly (Double Space)", 230, function(state)
+    flying = state
+    if state then
+        StartFlying()
+    else
+        StopFlying()
+    end
+end)
+
+-- Fly logic
+function StartFlying()
+    if flyBodyVelocity or flyBodyGyro then return end
+    
+    flyBodyVelocity = Instance.new("BodyVelocity")
+    flyBodyVelocity.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+    flyBodyVelocity.Velocity = Vector3.new(0,0,0)
+    flyBodyVelocity.Parent = root
+    
+    flyBodyGyro = Instance.new("BodyGyro")
+    flyBodyGyro.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
+    flyBodyGyro.P = 15000
+    flyBodyGyro.Parent = root
+    
+    hum.PlatformStand = true
+end
+
+function StopFlying()
+    if flyBodyVelocity then flyBodyVelocity:Destroy() flyBodyVelocity = nil end
+    if flyBodyGyro then flyBodyGyro:Destroy() flyBodyGyro = nil end
+    hum.PlatformStand = false
+end
+
+-- Điều khiển bay
+UIS.InputBegan:Connect(function(input, gpe)
+    if gpe then return end
+    
+    if input.KeyCode == Enum.KeyCode.Space and UIS:GetFocusedTextBox() == nil then
+        if UIS:IsKeyDown(Enum.KeyCode.Space) and flying then
+            -- Double space để bật/tắt fly
+            task.wait(0.25)
+            if UIS:IsKeyDown(Enum.KeyCode.Space) then
+                flying = not flying
+                flyToggle.BackgroundColor3 = flying and Color3.fromRGB(60, 200, 100) or Color3.fromRGB(60, 60, 70)
+                flyToggle.Text = flying and "ON" or "OFF"
+                flyToggle.TextColor3 = flying and Color3.new(1,1,1) or Color3.fromRGB(180,180,180)
+                
+                if flying then StartFlying() else StopFlying() end
+            end
+        end
+    end
+    
+    if not flying then return end
+    
+    if input.KeyCode == Enum.KeyCode.W then controls.forward = 1
+    elseif input.KeyCode == Enum.KeyCode.S then controls.backward = 1
+    elseif input.KeyCode == Enum.KeyCode.A then controls.left = 1
+    elseif input.KeyCode == Enum.KeyCode.D then controls.right = 1
+    elseif input.KeyCode == Enum.KeyCode.Space then controls.up = 1
+    elseif input.KeyCode == Enum.KeyCode.LeftControl then controls.down = 1
+    end
+end)
+
+UIS.InputEnded:Connect(function(input)
+    if not flying then return end
+    
+    if input.KeyCode == Enum.KeyCode.W then controls.forward = 0
+    elseif input.KeyCode == Enum.KeyCode.S then controls.backward = 0
+    elseif input.KeyCode == Enum.KeyCode.A then controls.left = 0
+    elseif input.KeyCode == Enum.KeyCode.D then controls.right = 0
+    elseif input.KeyCode == Enum.KeyCode.Space then controls.up = 0
+    elseif input.KeyCode == Enum.KeyCode.LeftControl then controls.down = 0
+    end
+end)
+
+-- Cập nhật fly mỗi frame
+RunService.RenderStepped:Connect(function(dt)
+    if hum then
+        hum.WalkSpeed = Settings.WalkSpeed
+        hum.JumpPower = Settings.JumpPower
+        
+        if Settings.Godmode then
+            hum.Health = hum.MaxHealth
+        end
+    end
+    
+    if flying and flyBodyGyro and flyBodyVelocity then
+        local cam = workspace.CurrentCamera
+        local moveDir = Vector3.new(
+            controls.right - controls.left,
+            controls.up - controls.down,
+            controls.backward - controls.forward
+        ).Unit
+        
+        if moveDir.Magnitude > 0 then
+            local lookDir = cam.CFrame.LookVector * -moveDir.Z + cam.CFrame.RightVector * moveDir.X + Vector3.new(0, moveDir.Y, 0)
+            flyBodyVelocity.Velocity = lookDir * Settings.FlySpeed
+        else
+            flyBodyVelocity.Velocity = Vector3.new(0,0,0)
+        end
+        
+        flyBodyGyro.CFrame = cam.CFrame
+    end
+end)
+
+-- Kéo GUI
+local draggingGui = false
+local dragStart, startPos
+
+TitleBar.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        draggingGui = true
+        dragStart = input.Position
+        startPos = Frame.Position
+    end
+end)
+
+TitleBar.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        draggingGui = false
+    end
+end)
+
+UIS.InputChanged:Connect(function(input)
+    if draggingGui and input.UserInputType == Enum.UserInputType.MouseMovement then
+        local delta = input.Position - dragStart
+        Frame.Position = UDim2.new(
+            startPos.X.Scale,
+            startPos.X.Offset + delta.X,
+            startPos.Y.Scale,
+            startPos.Y.Offset + delta.Y
+        )
+    end
+end)
+
+-- Đóng GUI
+CloseBtn.MouseButton1Click:Connect(function()
+    ScreenGui:Destroy()
+end)
+
+-- Mở lại bằng phím (ví dụ: Insert)
+UIS.InputBegan:Connect(function(input)
+    if input.KeyCode == Enum.KeyCode.Insert then
+        ScreenGui.Enabled = not ScreenGui.Enabled
+    end
+end)
+
+print("Cheat Menu loaded! Nhấn Insert để ẩn/hiện")
+-- Depth ranges
+local function getRarityByDepth(y)
+    if y >= -100 then return "common" end
+    if y >= -400 then return "epic" end
+    return "legendary"
+end
+
+-- Main Loop
+spawn(function()
+    while wait(0.1) do
+        local char = player.Character
+        if not char or not char:FindFirstChild("HumanoidRootPart") then continue end
+        local hrp = char.HumanoidRootPart
+        local hum = char:FindFirstChild("Humanoid")
+        
+        for _, part in pairs(char:GetDescendants()) do
+            if part:IsA("BasePart") then part.CanCollide = false end
+        end
+        
+        if hum then
+            hum.WalkSpeed = 50
+            hum.JumpPower = 100
+        end
+        
+        for _, gui in pairs(player.PlayerGui:GetDescendants()) do
+            if gui.Name:lower():match("oxygen|air|o2") and (gui:IsA("Frame") or gui:IsA("ImageLabel")) then
+                gui.Size = UDim2.new(1,0,1,0)
+                gui.BackgroundColor3 = Color3.new(0,1,0)
+            end
+        end
+        if hum then hum.Health = math.huge end
+        
+        if player:FindFirstChild("leaderstats") then
+            for _, stat in pairs(player.leaderstats:GetChildren()) do
+                if stat.Name:lower():match("oxygen|air|o2") then stat.Value = math.huge end
+            end
+        end
+        
+        if getgenv().AutoCollectMoney then
+            for _, obj in pairs(workspace:GetDescendants()) do
+                if obj:IsA("ProximityPrompt") and obj.ActionText:lower():match("collect|money|cash|coin|pick") then
+                    fireproximityprompt(obj)
+                end
+            end
+        end
+        
+        for _, obj in pairs(workspace:GetDescendants()) do
+            if obj:IsA("ProximityPrompt") and obj.ActionText:lower():match("add|place|aquarium") then
+                fireproximityprompt(obj)
+            end
+        end
+        
+        getgenv().huntCounter = getgenv().huntCounter + 0.1
+        if getgenv().huntCounter >= 1 then
+            getgenv().huntCounter = 0
+            local activeRarity = nil
+            if getgenv().AutoLegendary then activeRarity = "legendary"
+            elseif getgenv().AutoEpic then activeRarity = "epic"
+            elseif getgenv().AutoCommon then activeRarity = "common" end
+            if activeRarity then
+                huntFish(activeRarity, hrp)
+            end
+        end
+    end
+end)
+
+-- BƠI NHANH x200 + PUSH
+spawn(function()
+    while wait(0.03) do
+        local char = player.Character
+        if char and char:FindFirstChild("Humanoid") and char:FindFirstChild("HumanoidRootPart") then
+            local hum = char.Humanoid
+            local hrp = char.HumanoidRootPart
+            
+            local targetSpeed = 3200  -- x200 = 3200 (vẫn siêu nhanh, ổn định hơn x1000)
+            
+            hum.SwimSpeed = targetSpeed
+            
+            if hum:GetState() == Enum.HumanoidStateType.Swimming then
+                local cam = workspace.CurrentCamera
+                local direction = cam.CFrame.LookVector
+                
+                local velocity = Instance.new("BodyVelocity")
+                velocity.MaxForce = Vector3.new(1e6, 1e6, 1e6)
+                velocity.Velocity = direction * targetSpeed * 4  -- nhân 4 để đẩy cực mạnh
+                velocity.Parent = hrp
+                
+                game.Debris:AddItem(velocity, 0.08)
+            end
+            
+            print("[SWIM DEBUG] Bơi x200 - Speed: " .. targetSpeed)
+        end
+    end
+end)
+
+function huntFish(rarity, hrp)
+    local targets = {}
+    for _, obj in pairs(workspace:GetDescendants()) do
+        if obj:IsA("ProximityPrompt") and obj.ActionText:lower():find("catch") then
+            local fish = obj.Parent
+            if fish:IsA("Model") and fish.PrimaryPart then
+                local fishY = fish.PrimaryPart.Position.Y
+                local fishRarity = getRarityByDepth(fishY)
+                if fishRarity == rarity then
+                    local dist = (hrp.Position - fish.PrimaryPart.Position).Magnitude
+                    if dist < 500 then
+                        table.insert(targets, {prompt = obj, pos = fish.PrimaryPart.Position, dist = dist})
+                    end
+                end
+            end
+        end
+    end
+    
+    if #targets == 0 then return end
+    
+    table.sort(targets, function(a,b) return a.dist < b.dist end)
+    local closest = targets[1]
+    hrp.CFrame = CFrame.lookAt(closest.pos + Vector3.new(0,3,0), closest.pos) * CFrame.new(0,0,-4)
+    wait(0.05)
+    fireproximityprompt(closest.prompt)
+    print("Bắt "..rarity.."! ("..math.floor(closest.dist).." studs)")
+end
+
+-- GUI (thêm nút Tele 400m)
+local playerGui = player:WaitForChild("PlayerGui", 10)
+if not playerGui then return end
+
+local sg = Instance.new("ScreenGui")
+sg.Name = "HackVIPMinhDang"
+sg.ResetOnSpawn = false
+sg.Enabled = true
+sg.DisplayOrder = 999
+sg.Parent = playerGui
+
+local frame = Instance.new("Frame")
+frame.Size = UDim2.new(0, 340, 0, 420)
+frame.Position = UDim2.new(0.5, -170, 0.5, -210)
+frame.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
+frame.BorderSizePixel = 0
+frame.Parent = sg
+
+local gradient = Instance.new("UIGradient")
+gradient.Color = ColorSequence.new{
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(255,0,255)),
+    ColorSequenceKeypoint.new(0.25, Color3.fromRGB(0,255,255)),
+    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(0,255,0)),
+    ColorSequenceKeypoint.new(0.75, Color3.fromRGB(255,255,0)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(255,0,0))
+}
+gradient.Rotation = 90
+gradient.Parent = frame
+
+local corner = Instance.new("UICorner")
+corner.CornerRadius = UDim.new(0, 16)
+corner.Parent = frame
+
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1, -100, 0, 50)
+title.Position = UDim2.new(0, 15, 0, 5)
+title.BackgroundTransparency = 1
+title.Text = "HACK VIP by Minh Đăng"
+title.TextColor3 = Color3.new(1,1,1)
+title.Font = Enum.Font.GothamBlack
+title.TextSize = 22
+title.TextXAlignment = Enum.TextXAlignment.Left
+title.Parent = frame
+
+local toggleBtn = Instance.new("TextButton")
+toggleBtn.Size = UDim2.new(0, 40, 0, 40)
+toggleBtn.Position = UDim2.new(1, -95, 0, 10)
+toggleBtn.BackgroundColor3 = Color3.fromRGB(255, 215, 0)
+toggleBtn.Text = "-"
+toggleBtn.TextColor3 = Color3.new(0,0,0)
+toggleBtn.Font = Enum.Font.GothamBold
+toggleBtn.TextSize = 24
+toggleBtn.Parent = frame
+local toggleCorner = Instance.new("UICorner")
+toggleCorner.CornerRadius = UDim.new(0, 10)
+toggleCorner.Parent = toggleBtn
+
+local closeBtn = Instance.new("TextButton")
+closeBtn.Size = UDim2.new(0, 40, 0, 40)
+closeBtn.Position = UDim2.new(1, -50, 0, 10)
+closeBtn.BackgroundColor3 = Color3.fromRGB(255, 69, 0)
+closeBtn.Text = "✕"
+closeBtn.TextColor3 = Color3.new(1,1,1)
+closeBtn.Font = Enum.Font.GothamBold
+closeBtn.TextSize = 20
+closeBtn.Parent = frame
+local closeCorner = Instance.new("UICorner")
+closeCorner.CornerRadius = UDim.new(0, 10)
+closeCorner.Parent = closeBtn
+
+local scrollFrame = Instance.new("ScrollingFrame")
+scrollFrame.Size = UDim2.new(1, -20, 1, -60)
+scrollFrame.Position = UDim2.new(0, 10, 0, 60)
+scrollFrame.BackgroundTransparency = 1
+scrollFrame.ScrollBarThickness = 8
+scrollFrame.ScrollBarImageColor3 = Color3.fromRGB(200, 200, 255)
+scrollFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
+scrollFrame.Parent = frame
+
+local uiList = Instance.new("UIListLayout")
+uiList.SortOrder = Enum.SortOrder.LayoutOrder
+uiList.Padding = UDim.new(0, 8)
+uiList.Parent = scrollFrame
+
+uiList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+    scrollFrame.CanvasSize = UDim2.new(0, 0, 0, uiList.AbsoluteContentSize.Y + 20)
+end)
+
+toggleBtn.MouseButton1Click:Connect(function()
+    getgenv().GUICollapsed = not getgenv().GUICollapsed
+    scrollFrame.Visible = not getgenv().GUICollapsed
+    toggleBtn.Text = getgenv().GUICollapsed and "+" or "-"
+    frame.Size = getgenv().GUICollapsed and UDim2.new(0, 340, 0, 60) or UDim2.new(0, 340, 0, 420)
+end)
+
+closeBtn.MouseButton1Click:Connect(function()
+    sg:Destroy()
+end)
+
+-- Nút toggle
+local function createToggle(name, varName, offColor, onColor)
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(1, 0, 0, 50)
+    btn.BackgroundColor3 = offColor
+    btn.TextColor3 = Color3.new(1,1,1)
+    btn.Font = Enum.Font.GothamSemibold
+    btn.TextSize = 15
+    btn.Text = "- " .. name
+    btn.Parent = scrollFrame
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 12)
+    corner.Parent = btn
+    local state = false
+    btn.MouseButton1Click:Connect(function()
+        state = not state
+        getgenv()[varName] = state
+        btn.Text = (state and "+ " or "- ") .. name
+        btn.BackgroundColor3 = state and onColor or offColor
+    end)
+end
+
+-- Nút bơi nhanh (chỉ giữ x200 để đơn giản, nhưng mày có thể thêm lại nếu muốn)
+local function createSpeedButton(text, mult, color)
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(1, 0, 0, 50)
+    btn.BackgroundColor3 = color
+    btn.TextColor3 = Color3.new(1,1,1)
+    btn.Font = Enum.Font.GothamSemibold
+    btn.TextSize = 15
+    btn.Text = text
+    btn.Parent = scrollFrame
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 12)
+    corner.Parent = btn
+    btn.MouseButton1Click:Connect(function()
+        getgenv().SwimSpeedMultiplier = mult
+        print("Bơi x" .. mult .. " activated!")
+        for _, child in pairs(scrollFrame:GetChildren()) do
+            if child:IsA("TextButton") and child.Text:find("x") then
+                child.BackgroundColor3 = color
+            end
+        end
+        btn.BackgroundColor3 = Color3.fromRGB(50, 205, 50)
+    end)
+end
+
+-- Nút Tele 400m (mới)
+local tele400Btn = Instance.new("TextButton")
+tele400Btn.Size = UDim2.new(1, 0, 0, 50)
+tele400Btn.BackgroundColor3 = Color3.fromRGB(255, 69, 0)  -- Đỏ cam nổi bật
+tele400Btn.TextColor3 = Color3.new(1,1,1)
+tele400Btn.Font = Enum.Font.GothamBold
+tele400Btn.TextSize = 16
+tele400Btn.Text = "→ Tele Đến Độ Sâu 400m"
+tele400Btn.Parent = scrollFrame
+local teleCorner = Instance.new("UICorner")
+teleCorner.CornerRadius = UDim.new(0, 12)
+teleCorner.Parent = tele400Btn
+tele400Btn.MouseButton1Click:Connect(function()
+    local char = player.Character
+    if char and char:FindFirstChild("HumanoidRootPart") then
+        local hrp = char.HumanoidRootPart
+        hrp.CFrame = CFrame.new(hrp.Position.X, -400, hrp.Position.Z)  -- Giữ X/Z, chỉ thay Y = -400
+        print("Tele đến độ sâu 400m thành công!")
+    end
+end)
+
+-- Tạo nút khác (giữ nguyên)
+createToggle("Bất Tử (God Mode)", "GodMode", Color3.fromRGB(75, 0, 130), Color3.fromRGB(0, 255, 0))
+createToggle("Auto Hunt Common", "AutoCommon", Color3.fromRGB(0, 0, 139), Color3.fromRGB(0, 191, 255))
+createToggle("Auto Hunt Epic", "AutoEpic", Color3.fromRGB(148, 0, 211), Color3.fromRGB(186, 85, 211))
+createToggle("Auto Hunt Legendary", "AutoLegendary", Color3.fromRGB(255, 140, 0), Color3.fromRGB(255, 69, 0))
+createToggle("Auto Lụm Tiền", "AutoCollectMoney", Color3.fromRGB(255, 165, 0), Color3.fromRGB(255, 255, 0))
+
+createSpeedButton("Bơi Nhanh x200", 200, Color3.fromRGB(148, 0, 211))  -- Tím đậm cho x200
+
+print("✅ BƠI x200 + TELE 400m ready! Nhấn nút 'Tele Đến Độ Sâu 400m' để xuống sâu nhanh.")
+print("Lặn xuống nước với x200 là bay cực mạnh. Check F9 để xem debug.")
