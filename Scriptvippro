@@ -1,0 +1,119 @@
+-- Fling Tool đơn giản - giống kiểu grab & throw trong Fling Things and People
+-- Dùng cho test trong Studio hoặc game private
+
+local player = game.Players.LocalPlayer
+local mouse = player:GetMouse()
+local character = player.Character or player.CharacterAdded:Wait()
+local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
+
+local tool = script.Parent -- nếu đặt trong Tool
+-- hoặc tạo Tool động nếu muốn
+
+local grabbing = false
+local grabbedPart = nil
+local bodyVelocity = nil
+local bodyAngularVelocity = nil
+local linePart = nil  -- dây nối visual
+
+local GRAB_DISTANCE = 100
+local THROW_POWER = 250   -- chỉnh cái này để ném mạnh hơn (càng lớn càng bá)
+
+local function createGrabLine()
+    linePart = Instance.new("Part")
+    linePart.Anchored = true
+    linePart.CanCollide = false
+    linePart.Transparency = 0.4
+    linePart.Color = Color3.fromRGB(255, 0, 100)
+    linePart.Material = Enum.Material.Neon
+    linePart.Size = Vector3.new(0.3, 0.3, 1)
+    linePart.Parent = workspace
+end
+
+local function updateGrabLine()
+    if grabbedPart and linePart then
+        local dist = (humanoidRootPart.Position - grabbedPart.Position).Magnitude
+        linePart.Size = Vector3.new(0.3, 0.3, dist)
+        linePart.CFrame = CFrame.new(humanoidRootPart.Position, grabbedPart.Position) * CFrame.new(0,0,-dist/2)
+    end
+end
+
+mouse.Button1Down:Connect(function()
+    if grabbing then return end
+    
+    local target = mouse.Target
+    if not target then return end
+    
+    if target:IsDescendantOf(workspace) and target:IsA("BasePart") 
+        and (target.Position - humanoidRootPart.Position).Magnitude <= GRAB_DISTANCE then
+        
+        grabbing = true
+        grabbedPart = target
+        
+        -- Tắt va chạm để dễ cầm
+        grabbedPart.CanCollide = false
+        
+        -- Tạo dây visual
+        if not linePart then createGrabLine() end
+        
+        -- Body movers để điều khiển
+        bodyVelocity = Instance.new("BodyVelocity")
+        bodyVelocity.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+        bodyVelocity.Velocity = Vector3.new()
+        bodyVelocity.Parent = grabbedPart
+        
+        bodyAngularVelocity = Instance.new("BodyAngularVelocity")
+        bodyAngularVelocity.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
+        bodyAngularVelocity.AngularVelocity = Vector3.new()
+        bodyAngularVelocity.Parent = grabbedPart
+    end
+end)
+
+mouse.Button1Up:Connect(function()
+    if not grabbing then return end
+    
+    grabbing = false
+    
+    -- Ném theo hướng chuột/camera
+    local direction = (mouse.Hit.Position - humanoidRootPart.Position).Unit
+    bodyVelocity.Velocity = direction * THROW_POWER + Vector3.new(0, 40, 0) -- thêm chút lực lên để bay đẹp
+    
+    -- Xoay random cho vui
+    bodyAngularVelocity.AngularVelocity = Vector3.new(
+        math.random(-200,200), math.random(-200,200), math.random(-200,200)
+    )
+    
+    task.wait(0.3)
+    
+    -- Reset
+    if bodyVelocity then bodyVelocity:Destroy() end
+    if bodyAngularVelocity then bodyAngularVelocity:Destroy() end
+    if linePart then linePart:Destroy() linePart = nil end
+    
+    task.wait(1)
+    if grabbedPart then grabbedPart.CanCollide = true end
+    
+    grabbedPart = nil
+end)
+
+game:GetService("RunService").RenderStepped:Connect(function()
+    if grabbing and grabbedPart and bodyVelocity then
+        local targetPos = mouse.Hit.Position + Vector3.new(0, 5, 0) -- offset lên chút
+        local direction = (targetPos - grabbedPart.Position)
+        bodyVelocity.Velocity = direction * 25  -- lực kéo về tay
+        
+        updateGrabLine()
+    end
+end)
+
+-- Optional: Nhấn E để toggle fly mode (cho vui)
+local flying = false
+game:GetService("UserInputService").InputBegan:Connect(function(input)
+    if input.KeyCode == Enum.KeyCode.E then
+        flying = not flying
+        if flying then
+            print("Fly mode ON - cầm đồ bay theo!")
+        else
+            print("Fly mode OFF")
+        end
+    end
+end)
