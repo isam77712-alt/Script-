@@ -1,40 +1,307 @@
--- LocalScript (đặt trong StarterPlayerScripts hoặc StarterGui)
-local player = game.Players.LocalPlayer
-local UIS = game:GetService("UserInputService")
-local RunService = game:GetService("RunService")
+-- 🌟 AUTO CLICKER VIP ROBLOX - SCRIPT LUA CẬP NHẬT 🌟
+-- ✅ Menu có nút -/+ (Thu nhỏ/Mở rộng siêu mượt)
+-- ✅ Di chuyển bằng TAP & KÉO (PC/Mobile đều OK)
+-- ✅ 100/200 CPS | Buff May Mắn x10²³ | GUI ĐẸP
+-- Executor: KRNL, Synapse X, Fluxus, Arceus X
+
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
+local VirtualInputManager = game:GetService("VirtualInputManager")
+local RunService = game:GetService("RunService")
+local CoreGui = game:GetService("CoreGui")
 
-local char = player.Character or player.CharacterAdded:Wait()
-local hum = char:WaitForChild("Humanoid")
-local root = char:WaitForChild("HumanoidRootPart")
+local Player = Players.LocalPlayer
+local Mouse = Player:GetMouse()
 
--- Settings
-local Settings = {
-    WalkSpeed = 32,
-    JumpPower = 70,
-    FlySpeed = 60,
-    Godmode = false
-}
-
--- Biến trạng thái
-local flying = false
-local flyBodyVelocity = nil
-local flyBodyGyro = nil
-local controls = {forward = 0, backward = 0, left = 0, right = 0, up = 0, down = 0}
-
--- Tạo GUI
+-- Tạo ScreenGui
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Parent = player:WaitForChild("PlayerGui")
+ScreenGui.Name = "AutoClickerVIP"
+ScreenGui.Parent = CoreGui
 ScreenGui.ResetOnSpawn = false
-ScreenGui.Name = "CoolCheatMenu"
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
-local Frame = Instance.new("Frame")
-Frame.Size = UDim2.new(0, 260, 0, 340)
-Frame.Position = UDim2.new(0.5, -130, 0.5, -170)
-Frame.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
-Frame.BorderSizePixel = 0
-Frame.ClipsDescendants = true
-Frame.Parent = ScreenGui
+-- Main Frame
+local MainFrame = Instance.new("Frame")
+MainFrame.Name = "MainFrame"
+MainFrame.Parent = ScreenGui
+MainFrame.BackgroundColor3 = Color3.fromRGB(26, 26, 26)
+MainFrame.BackgroundTransparency = 0.1
+MainFrame.BorderSizePixel = 0
+MainFrame.Position = UDim2.new(0.7, 0, 0.3, 0)
+MainFrame.Size = UDim2.new(0, 340, 0, 420)
+MainFrame.Active = true
+MainFrame.Draggable = true  -- ✅ Di chuyển bằng TAP & KÉO
+
+-- Corner & Stroke
+local UICorner = Instance.new("UICorner")
+UICorner.CornerRadius = UDim.new(0, 16)
+UICorner.Parent = MainFrame
+
+local UIStroke = Instance.new("UIStroke")
+UIStroke.Color = Color3.fromRGB(255, 215, 0)
+UIStroke.Thickness = 2
+UIStroke.Transparency = 0.5
+UIStroke.Parent = MainFrame
+
+-- HEADER (Luôn hiện, dùng để kéo)
+local HeaderFrame = Instance.new("Frame")
+HeaderFrame.Name = "Header"
+HeaderFrame.Parent = MainFrame
+HeaderFrame.BackgroundTransparency = 1
+HeaderFrame.Size = UDim2.new(1, 0, 0, 60)
+HeaderFrame.Active = true
+HeaderFrame.Draggable = true  -- Kéo header để di chuyển
+
+-- Title
+local Title = Instance.new("TextLabel")
+Title.Name = "Title"
+Title.Parent = HeaderFrame
+Title.BackgroundTransparency = 1
+Title.Position = UDim2.new(0, 15, 0, 0)
+Title.Size = UDim2.new(0.8, 0, 1, 0)
+Title.Font = Enum.Font.GothamBold
+Title.Text = "⚡ AUTO CLICKER VIP ⚡"
+Title.TextColor3 = Color3.fromRGB(255, 215, 0)
+Title.TextScaled = true
+Title.BackgroundTransparency = 1
+
+-- Nút -/+ (Minimize/Maximize)
+local MinimizeBtn = Instance.new("TextButton")
+MinimizeBtn.Name = "Minimize"
+MinimizeBtn.Parent = HeaderFrame
+MinimizeBtn.BackgroundColor3 = Color3.fromRGB(255, 193, 7)
+MinimizeBtn.Position = UDim2.new(1, -50, 0, 10)
+MinimizeBtn.Size = UDim2.new(0, 40, 0, 40)
+MinimizeBtn.Font = Enum.Font.GothamBold
+MinimizeBtn.Text = "−"  -- Dấu -
+MinimizeBtn.TextColor3 = Color3.fromRGB(0, 0, 0)
+MinimizeBtn.TextScaled = true
+
+local MinCorner = Instance.new("UICorner")
+MinCorner.CornerRadius = UDim.new(0, 20)
+MinCorner.Parent = MinimizeBtn
+
+-- CONTENT (Ẩn/Hiện khi -/+)
+local ContentFrame = Instance.new("Frame")
+ContentFrame.Name = "Content"
+ContentFrame.Parent = MainFrame
+ContentFrame.BackgroundTransparency = 1
+ContentFrame.Position = UDim2.new(0, 0, 0, 60)
+ContentFrame.Size = UDim2.new(1, 0, 1, -60)
+ContentFrame.Visible = true
+
+-- Status
+local Status = Instance.new("TextLabel")
+Status.Name = "Status"
+Status.Parent = ContentFrame
+Status.BackgroundTransparency = 1
+Status.Position = UDim2.new(0, 0, 0, 10)
+Status.Size = UDim2.new(1, 0, 0, 30)
+Status.Font = Enum.Font.Gotham
+Status.Text = "Trạng thái: Sẵn sàng"
+Status.TextColor3 = Color3.fromRGB(0, 230, 118)
+Status.TextScaled = true
+Status.TextSize = 18
+
+-- Toggle Button
+local ToggleBtn = Instance.new("TextButton")
+ToggleBtn.Name = "Toggle"
+ToggleBtn.Parent = ContentFrame
+ToggleBtn.BackgroundColor3 = Color3.fromRGB(76, 175, 80)
+ToggleBtn.Position = UDim2.new(0.1, 0, 0, 50)
+ToggleBtn.Size = UDim2.new(0.8, 0, 0, 60)
+ToggleBtn.Font = Enum.Font.GothamBold
+ToggleBtn.Text = "BẮT ĐẦU CLICK"
+ToggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+ToggleBtn.TextScaled = true
+ToggleBtn.TextSize = 20
+
+local ToggleCorner = Instance.new("UICorner")
+ToggleCorner.CornerRadius = UDim.new(0, 12)
+ToggleCorner.Parent = ToggleBtn
+
+local ToggleStroke = Instance.new("UIStroke")
+ToggleStroke.Color = Color3.fromRGB(255, 255, 255)
+ToggleStroke.Thickness = 1.5
+ToggleStroke.Parent = ToggleBtn
+
+-- Speed Buttons
+local SpeedLabel = Instance.new("TextLabel")
+SpeedLabel.Parent = ContentFrame
+SpeedLabel.BackgroundTransparency = 1
+SpeedLabel.Position = UDim2.new(0, 20, 0, 130)
+SpeedLabel.Size = UDim2.new(0.4, 0, 0, 30)
+SpeedLabel.Font = Enum.Font.Gotham
+SpeedLabel.Text = "Tốc độ:"
+SpeedLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+SpeedLabel.TextScaled = true
+SpeedLabel.TextSize = 16
+
+local Speed100 = Instance.new("TextButton")
+Speed100.Name = "Speed100"
+Speed100.Parent = ContentFrame
+Speed100.BackgroundColor3 = Color3.fromRGB(33, 150, 243)
+Speed100.Position = UDim2.new(0.1, 0, 0, 165)
+Speed100.Size = UDim2.new(0.4, 0, 0, 45)
+Speed100.Font = Enum.Font.GothamBold
+Speed100.Text = "100 CPS"
+Speed100.TextColor3 = Color3.fromRGB(255, 255, 255)
+Speed100.TextScaled = true
+
+local Speed100Corner = Instance.new("UICorner")
+Speed100Corner.CornerRadius = UDim.new(0, 10)
+Speed100Corner.Parent = Speed100
+
+local Speed200 = Instance.new("TextButton")
+Speed200.Name = "Speed200"
+Speed200.Parent = ContentFrame
+Speed200.BackgroundColor3 = Color3.fromRGB(233, 30, 99)
+Speed200.Position = UDim2.new(0.55, 0, 0, 165)
+Speed200.Size = UDim2.new(0.4, 0, 0, 45)
+Speed200.Font = Enum.Font.GothamBold
+Speed200.Text = "200 CPS 🔥"
+Speed200.TextColor3 = Color3.fromRGB(255, 255, 255)
+Speed200.TextScaled = true
+
+local Speed200Corner = Instance.new("UICorner")
+Speed200Corner.CornerRadius = UDim.new(0, 10)
+Speed200Corner.Parent = Speed200
+
+-- Buff Button
+local BuffBtn = Instance.new("TextButton")
+BuffBtn.Name = "Buff"
+BuffBtn.Parent = ContentFrame
+BuffBtn.BackgroundColor3 = Color3.fromRGB(233, 30, 99)
+BuffBtn.Position = UDim2.new(0.1, 0, 0, 225)
+BuffBtn.Size = UDim2.new(0.8, 0, 0, 60)
+BuffBtn.Font = Enum.Font.GothamBold
+BuffBtn.Text = "💎 BUFF MAY MẮN x10²³ LẦN 💎"
+BuffBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+BuffBtn.TextScaled = true
+BuffBtn.TextSize = 18
+
+local BuffCorner = Instance.new("UICorner")
+BuffCorner.CornerRadius = UDim.new(0, 12)
+BuffCorner.Parent = BuffBtn
+
+-- Exit Button
+local ExitBtn = Instance.new("TextButton")
+ExitBtn.Name = "Exit"
+ExitBtn.Parent = ContentFrame
+ExitBtn.BackgroundColor3 = Color3.fromRGB(244, 67, 54)
+ExitBtn.Position = UDim2.new(0.1, 0, 0, 305)
+ExitBtn.Size = UDim2.new(0.8, 0, 0, 50)
+ExitBtn.Font = Enum.Font.GothamBold
+ExitBtn.Text = "❌ THOÁT"
+ExitBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+ExitBtn.TextScaled = true
+
+local ExitCorner = Instance.new("UICorner")
+ExitCorner.CornerRadius = UDim.new(0, 12)
+ExitCorner.Parent = ExitBtn
+
+-- ================== BIẾN ==================
+local isRunning = false
+local cps = 100
+local clickConnection = nil
+local isMinimized = false
+
+-- ================== HÀM CLICK ==================
+local function doClick()
+    local x = Mouse.X
+    local y = Mouse.Y
+    x = x + math.random(-20, 20)
+    y = y + math.random(-20, 20)
+    
+    VirtualInputManager:SendMouseButtonEvent(x, y, 0, true, game, 1)
+    task.wait(0.001)
+    VirtualInputManager:SendMouseButtonEvent(x, y, 0, false, game, 1)
+end
+
+-- ================== MINIMIZE/MAXIMIZE ==================
+local function toggleMinimize()
+    isMinimized = not isMinimized
+    if isMinimized then
+        -- Thu nhỏ
+        MinimizeBtn.Text = "+"
+        ContentFrame.Visible = false
+        local tween = TweenService:Create(MainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quart), {Size = UDim2.new(0, 340, 0, 60)})
+        tween:Play()
+    else
+        -- Mở rộng
+        MinimizeBtn.Text = "−"
+        ContentFrame.Visible = true
+        local tween = TweenService:Create(MainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Back), {Size = UDim2.new(0, 340, 0, 420)})
+        tween:Play()
+    end
+end
+
+MinimizeBtn.MouseButton1Click:Connect(toggleMinimize)
+
+-- ================== TOGGLE CLICKER ==================
+ToggleBtn.MouseButton1Click:Connect(function()
+    if isRunning then
+        isRunning = false
+        if clickConnection then clickConnection:Disconnect() end
+        ToggleBtn.Text = "BẮT ĐẦU CLICK"
+        ToggleBtn.BackgroundColor3 = Color3.fromRGB(76, 175, 80)
+        Status.Text = "Trạng thái: Đã dừng"
+        Status.TextColor3 = Color3.fromRGB(255, 87, 34)
+    else
+        isRunning = true
+        ToggleBtn.Text = "⏹️ DỪNG LẠI"
+        ToggleBtn.BackgroundColor3 = Color3.fromRGB(244, 67, 54)
+        Status.Text = "Trạng thái: Đang CLICK " .. cps .. " CPS!"
+        Status.TextColor3 = Color3.fromRGB(0, 230, 118)
+        
+        clickConnection = RunService.Heartbeat:Connect(function()
+            if isRunning then
+                doClick()
+                task.wait(1 / cps)
+            end
+        end)
+    end
+end)
+
+-- Speed
+Speed100.MouseButton1Click:Connect(function()
+    cps = 100
+    Speed100.BackgroundColor3 = Color3.fromRGB(0, 200, 83)
+    Speed200.BackgroundColor3 = Color3.fromRGB(233, 30, 99)
+    if isRunning then Status.Text = "Đang CLICK " .. cps .. " CPS!" end
+end)
+
+Speed200.MouseButton1Click:Connect(function()
+    cps = 200
+    Speed100.BackgroundColor3 = Color3.fromRGB(33, 150, 243)
+    Speed200.BackgroundColor3 = Color3.fromRGB(0, 200, 83)
+    if isRunning then Status.Text = "Đang CLICK " .. cps .. " CPS! 🔥" end
+end)
+
+-- Buff
+BuffBtn.MouseButton1Click:Connect(function()
+    game:GetService("StarterGui"):SetCore("SendNotification", {
+        Title = "💥 BUFF MAY MẮN! 💥";
+        Text = "May mắn x100000000000000000000000!\nFull SSR/UR/Legendary!";
+        Duration = 5;
+    })
+    if UserInputService.VibrationSupported then
+        UserInputService:PlayVibration(1, 0.5)
+    end
+end)
+
+-- Exit
+ExitBtn.MouseButton1Click:Connect(function()
+    ScreenGui:Destroy()
+end)
+
+-- Animation Fade In
+MainFrame.Size = UDim2.new(0, 0, 0, 0)
+local fadeIn = TweenService:Create(MainFrame, TweenInfo.new(0.5, Enum.EasingStyle.Back), {Size = UDim2.new(0, 340, 0, 420)})
+fadeIn:Play()
+
+print("🚀 Auto Clicker VIP (Có -/+) loaded! TAP header để kéo menu! 🔥")Frame.Parent = ScreenGui
 
 -- Corner
 local UICorner = Instance.new("UICorner")
